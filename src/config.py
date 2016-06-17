@@ -51,6 +51,22 @@ class LargeConfig(object):
   vocab_size = 10000
 
 
+class TitanXConfig(object):
+  """For Titan X -- Faster Training"""
+  init_scale = 0.04
+  learning_rate = 1.0
+  max_grad_norm = 10
+  num_layers = 2
+  num_steps = 35
+  hidden_size = 1024
+  max_epoch = 14
+  max_max_epoch = 55
+  keep_prob = 0.35
+  lr_decay = 1 / 1.15
+  batch_size = 64
+  vocab_size = 10000
+
+
   """Debugging code for models"""
   # import sys
 # with tf.Session() as sess:

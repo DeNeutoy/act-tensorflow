@@ -75,7 +75,6 @@ def ptb_raw_data(data_path, train, valid, test):
     tuple (train_data, valid_data, test_data, vocabulary)
     where each of the data objects can be passed to PTBIterator.
   """
-
   train_path = os.path.join(data_path, train)
   valid_path = os.path.join(data_path, valid)
   test_path = os.path.join(data_path, test)

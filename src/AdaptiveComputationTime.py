@@ -8,8 +8,12 @@ from collections import defaultdict
 import tensorflow as tf
 from epoch import run_epoch
 from config import SmallConfig
-from tensorflow.models.rnn import rnn_cell, rnn
-from tensorflow.models.rnn import seq2seq
+try:
+    from tensorflow.models.rnn import rnn_cell, rnn, seq2seq
+except:
+    rnn_cell = tf.nn.rnn_cell
+    rnn = tf.nn.rnn
+    seq2seq = tf.nn.seq2seq
 from tensorflow.python.ops import array_ops, functional_ops
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops.tensor_array_ops import TensorArray
@@ -52,9 +56,12 @@ class ACTModel(object):
         inputs = [tf.squeeze(single_input, [1]) for single_input in tf.split(1, self.config.num_steps, inputs)]
         #inputs = tf.pack(inputs)
 
-        self.outputs, final_state = rnn.rnn(act,inputs,initial_state=rnn_state
+        try:
+            self.outputs, final_state = rnn.rnn(act,inputs,initial_state=rnn_state
                                             ,sequence_length=self.num_steps)
-
+        except:
+            self.outputs, final_state = rnn(act,inputs,initial_state=rnn_state
+                                            ,sequence_length=self.num_steps)
 
         ###### Softmax to get distribution over vocab #######
         output = tf.reshape(tf.concat(1, self.outputs), [-1, hidden_size])
