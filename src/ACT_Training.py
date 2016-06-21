@@ -14,10 +14,7 @@ from AdaptiveComputationTime import ACTModel
 try:
     from tensorflow.models.rnn import rnn_cell, rnn, seq2seq
 except:
-    rnn_cell = tf.nn.rnn_cell
-    rnn = tf.nn.rnn
-    seq2seq = tf.nn.seq2seq
-
+    pass
 from tensorflow.python.ops import array_ops
 
 import saveload

@@ -14,6 +14,8 @@ except:
     sys.path.insert(0, os.environ['HOME'])
     from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced as rnn_cell
     from Project_RNN_Enhancement.rnn_enhancement import rnn_enhanced as rnn
+    from Project_RNN_Enhancement.rnn_enhancement import victory_music
+
     seq2seq = tf.nn.seq2seq
 from tensorflow.python.ops import array_ops, functional_ops
 from tensorflow.python.ops import control_flow_ops
@@ -49,18 +51,20 @@ class ACTModel(object):
             rnn_state = inner_cell.zero_state(self.batch_size, dtype=tf.float32)
 
         with tf.variable_scope("ACT"):
-
-            act = ACTCell_TensorArray(self.config.hidden_size, inner_cell, 0.01, 10)
+            act = inner_cell
+            # act = ACTCell_TensorArray(self.config.hidden_size, inner_cell, 0.01, 10)
 
         embedding = tf.get_variable('embedding', [self.config.vocab_size, self.config.hidden_size])
         inputs = tf.nn.embedding_lookup(embedding, self.input_data)
         inputs = [tf.squeeze(single_input, [1]) for single_input in tf.split(1, self.config.num_steps, inputs)]
         #inputs = tf.pack(inputs)
 
-        self.outputs, final_state = rnn.rnn(act, inputs,initial_state=rnn_state
-                                            ,sequence_length=self.num_steps)
+        self.outputs, final_state = rnn.rnn(act, inputs, #initial_state=rnn_state,
+                                            sequence_length=self.num_steps, dtype = tf.float32)
 
-        ###### Softmax to get distribution over vocab #######
+
+
+        '''###### Softmax to get distribution over vocab #######'''
         output = tf.reshape(tf.concat(1, self.outputs), [-1, hidden_size])
         softmax_w = tf.get_variable("softmax_w", [hidden_size, vocab_size])
         softmax_b = tf.get_variable("softmax_b", [vocab_size])
@@ -209,10 +213,6 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
 
     def __call__(self, inputs, state, timestep = 0, scope=None):
 
-        print('inputs', inputs)
-        print('state', state)
-
-
         with vs.variable_scope(scope or type(self).__name__):
 
             # define within cell constants/ counters used to control while loop
@@ -251,11 +251,9 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
 
         tf.add_to_collection("ACT_remainder", remainder)
         tf.add_to_collection("ACT_iterations", iterations)
+
+
         print('got through one complete timestep')
-
-        print('output', output)
-        print('next_state', next_state)
-
         return output, next_state
 
     def ACTStep(self,prob,counter,state,input,acc_outputs,acc_states,acc_probs):
