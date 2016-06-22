@@ -220,48 +220,50 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
             # define within cell constants/ counters used to control while loop
             prob = tf.constant(0.0,tf.float32, name="prob")
             counter = tf.constant(0, dtype=tf.int32, name="counter")
-            acc_probs, acc_outputs, acc_states = [],[],[]
+            acc_outputs = tf.zeros_like(state, tf.float32, name="output_accumulator")
+            acc_states = tf.zeros_like(state, tf.float32, name="state_accumulator")
 
 
             #dynamic set to true because we don't know how many N iterations will occur
-            acc_probs = TensorArray(dtype = tf.float32, size = 1, dynamic_size = True, clear_after_read = False,
-                tensor_array_name = "accumulated_probabilities_{}".format(timestep), infer_shape = True)
-            acc_outputs = TensorArray(dtype = tf.float32, size = 1, dynamic_size = True, clear_after_read = False,
-                tensor_array_name = "accumulated_outputs_{}".format(timestep), infer_shape = True)
-            acc_states = TensorArray(dtype = tf.float32, size = 1, dynamic_size = True, clear_after_read = False,
-                tensor_array_name = "accumulated_states_{}".format(timestep), infer_shape = True)
+            # acc_probs = TensorArray(dtype = tf.float32, size = 1, dynamic_size = True, clear_after_read = False,
+            #     tensor_array_name = "accumulated_probabilities_{}".format(timestep), infer_shape = True)
+            # acc_outputs = TensorArray(dtype = tf.float32, size = 1, dynamic_size = True, clear_after_read = False,
+            #     tensor_array_name = "accumulated_outputs_{}".format(timestep), infer_shape = True)
+            # acc_states = TensorArray(dtype = tf.float32, size = 1, dynamic_size = True, clear_after_read = False,
+            #     tensor_array_name = "accumulated_states_{}".format(timestep), infer_shape = True)
 
             # the predicate for stopping the while loop. Tensorflow demands that we have
             # all of the variables used in the while loop in the predicate.
-            pred = lambda prob,counter,state,input,acc_output,acc_state,acc_probs:\
+            pred = lambda prob,counter,state,input,acc_output,acc_state:\
                 tf.logical_and(tf.less(prob,self.one_minus_eps), tf.less(counter,self.N))
 
-            _,iterations,_,_,acc_outputs,acc_states,acc_probs = control_flow_ops.while_loop(
+            prob,iterations,_,_,acc_outputs,acc_states = control_flow_ops.while_loop(
                 
-                pred,self.ACTStep,[prob,counter,state,inputs, acc_outputs, acc_states, acc_probs])
+                pred,self.ACTStep,[prob,counter,state,inputs, acc_outputs, acc_states])
 
         #nick as a reminder, you can pack the tensorarray to convert it to a regular tensor
-        remainder = 1.0 - acc_probs.read(iterations)
-        acc_probs.write(iterations, remainder) #not sure if this command is correct
-
-        acc_probs = acc_probs.pack()
-        acc_states = acc_states.pack()
-        acc_outputs = acc_outputs.pack()
+        # remainder = 1.0 - acc_probs.read(iterations)
+        # acc_probs.write(iterations, remainder) #not sure if this command is correct
+        #
+        # acc_probs = acc_probs.pack()
+        # acc_states = acc_states.pack()
+        # acc_outputs = acc_outputs.pack()
 
         # expand the dimensions of acc_probs to (1,iterations,1) so the broadcasting works
-        next_state = tf.reduce_sum(tf.expand_dims(tf.expand_dims(acc_probs,0),2) * acc_states, reduction_indices = 0) #check reduction indices
-        output = tf.reduce_sum(tf.expand_dims(tf.expand_dims(acc_probs,0),2) * acc_outputs, reduction_indices = 0)
-
-        next_state.set_shape([None, self.cell.state_size])
-        output.set_shape([None, self.cell.state_size])
-
-        tf.add_to_collection("ACT_remainder", remainder)
+        # next_state = tf.reduce_sum(tf.expand_dims(tf.expand_dims(acc_probs,0),2) * acc_states, reduction_indices = 0) #check reduction indices
+        # output = tf.reduce_sum(tf.expand_dims(tf.expand_dims(acc_probs,0),2) * acc_outputs, reduction_indices = 0)
+        #
+        # next_state.set_shape([None, self.cell.state_size])
+        # output.set_shape([None, self.cell.state_size])
+        output = acc_outputs
+        next_state = acc_states
+        tf.add_to_collection("ACT_remainder", 1.0-prob)  # TODO: check if this is right
         tf.add_to_collection("ACT_iterations", iterations)
 
         print('got through one complete timestep')
         return output, next_state
 
-    def ACTStep(self,prob,counter,state,input,acc_outputs,acc_states,acc_probs):
+    def ACTStep(self,prob,counter,state,input,acc_outputs,acc_states):
 
         #you may need to change this to rnn.rnn depending on tensorflow versions
         output, new_state = rnn(self.cell, [input], state, scope=type(self.cell).__name__)
@@ -272,13 +274,22 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
             # p = tf.squeeze(tf.nn.sigmoid(tf.matmul(new_state,prob_w) + prob_b))
             # p = tf.nn.rnn_cell._linear(new_state[0], 1, True)
             p = tf.squeeze(tf.nn.rnn_cell._linear(new_state, 1, True))
+            prob += p
 
+        def use_remainder():
+            remainder = 1.0 - prob + p
+            acc_state = tf.add(tf.mul(new_state,remainder), acc_states)
+            acc_output = tf.add(tf.mul(output[0], remainder), acc_outputs)
+            return acc_state, acc_output
 
-        acc_outputs = acc_outputs.write(counter, output[0])
-        acc_states = acc_states.write(counter, new_state)
-        acc_probs = acc_probs.write(counter, p)
+        def normal():
+            acc_state = tf.add(tf.mul(new_state,p), acc_states)
+            acc_output = tf.add(tf.mul(output[0], p), acc_outputs)
+            return acc_state, acc_output
 
-        return [prob + p,counter + 1,new_state, input, acc_outputs,acc_states,acc_probs]
+        acc_state, acc_output = tf.cond(tf.less(prob,self.one_minus_eps), normal, use_remainder)
+
+        return [prob,counter + 1,new_state, input, acc_output,acc_state]
 
     def get_ponder_cost(self, epsilon):
 
