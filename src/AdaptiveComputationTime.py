@@ -78,7 +78,7 @@ class ACTModel(object):
                 vocab_size)
 
 
-        self.cost = tf.reduce_sum(loss) / batch_size #+ act.get_ponder_cost(0.01)
+        self.cost = tf.reduce_sum(loss) / batch_size + act.get_ponder_cost(0.01)
         self.final_state = self.outputs[-1]
 
         if is_training:
@@ -277,7 +277,7 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
             prob += p
 
         def use_remainder():
-            remainder = 1.0 - prob + p
+            remainder = 1.0 - prob
             acc_state = tf.add(tf.mul(new_state,remainder), acc_states)
             acc_output = tf.add(tf.mul(output[0], remainder), acc_outputs)
             return acc_state, acc_output
@@ -295,4 +295,4 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
 
         n_iterations = tf.get_collection_ref("ACT_iterations")
         remainder = tf.get_collection_ref("ACT_remainder")
-        return tf.reduce_sum(n_iterations + remainder)
+        return tf.reduce_sum(tf.cast(n_iterations,tf.float32) + remainder)
