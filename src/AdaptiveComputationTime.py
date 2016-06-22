@@ -51,8 +51,8 @@ class ACTModel(object):
             rnn_state = inner_cell.zero_state(self.batch_size, dtype=tf.float32)
 
         with tf.variable_scope("ACT"):
-            act = inner_cell
-            # act = ACTCell_TensorArray(self.config.hidden_size, inner_cell, 0.01, 10)
+            # act = inner_cell
+            act = ACTCell_TensorArray(self.config.hidden_size, inner_cell, 0.01, 10)
 
         embedding = tf.get_variable('embedding', [self.config.vocab_size, self.config.hidden_size])
         inputs = tf.nn.embedding_lookup(embedding, self.input_data)
@@ -60,7 +60,7 @@ class ACTModel(object):
         #inputs = tf.pack(inputs)
 
         self.outputs, final_state = rnn.rnn(act, inputs, #initial_state=rnn_state,
-                                            sequence_length=self.num_steps, dtype = tf.float32)
+                                            dtype = tf.float32)
 
 
 
@@ -77,7 +77,7 @@ class ACTModel(object):
                 vocab_size)
 
 
-        self.cost = tf.reduce_sum(loss) / batch_size + act.get_ponder_cost(0.01)
+        self.cost = tf.reduce_sum(loss) / batch_size #+ act.get_ponder_cost(0.01)
         self.final_state = self.outputs[-1]
 
         if is_training:
@@ -171,8 +171,8 @@ class ACTCell(rnn_cell.RNNCell):
 
         output, new_state = rnn.rnn(self.cell, [input], state, scope=type(self.cell).__name__)
 
-        prob_w = tf.get_variable("prob_w", [self.cell.state_size,1]) #corrected to state_size
-        prob_b = tf.get_variable("prob_b", [1])
+        prob_w = tf.get_variable("prob_w", [self.cell.state_size,1], trainable = False) #corrected to state_size
+        prob_b = tf.get_variable("prob_b", [1], trainable = False)
         p = tf.squeeze(tf.nn.sigmoid(tf.matmul(new_state,prob_w) + prob_b))
 
         acc_outputs.append(output[0])
@@ -265,11 +265,15 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
             # prob_w = tf.get_variable("prob_w", [self.cell.state_size,1]) #corrected to state_size
             # prob_b = tf.get_variable("prob_b", [1])
             # p = tf.squeeze(tf.nn.sigmoid(tf.matmul(new_state,prob_w) + prob_b))
-            p = tf.nn.rnn_cell._linear(new_state[0], 1, True)
+            # p = tf.nn.rnn_cell._linear(new_state[0], 1, True)
+            p = tf.squeeze(tf.nn.rnn_cell._linear(new_state[0], 1, True))
+
  
         acc_outputs.write(counter, output[0])
         acc_states.write(counter, new_state[0])
         acc_probs.write(counter, p)
+
+        
 
         return [prob + p,counter + 1,new_state[0], input, acc_outputs,acc_states,acc_probs]
 
