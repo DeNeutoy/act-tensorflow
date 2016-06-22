@@ -8,8 +8,9 @@ from collections import defaultdict
 import tensorflow as tf
 from epoch import run_epoch
 from config import SmallConfig
+import random
 try:
-    from tensorflow.models.rnn import rnn_cell, rnn, seq2seq
+    from tensorflow.python.ops.nn import rnn_cell, rnn, seq2seq
 except:
     sys.path.insert(0, os.environ['HOME'])
     from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced as rnn_cell
@@ -32,7 +33,7 @@ class ACTModel(object):
         self.batch_size = batch_size = 1
         self.num_steps = num_steps = config.num_steps
         self.hidden_size = hidden_size =  config.hidden_size
-        self.num_layers = config.num_layers
+        self.num_layers = 1
         vocab_size = config.vocab_size
         self.max_grad_norm = config.max_grad_norm
 
@@ -59,7 +60,7 @@ class ACTModel(object):
         inputs = [tf.squeeze(single_input, [1]) for single_input in tf.split(1, self.config.num_steps, inputs)]
         #inputs = tf.pack(inputs)
 
-        self.outputs, final_state = rnn.rnn(act, inputs, #initial_state=rnn_state,
+        self.outputs, final_state = rnn(act, inputs, #initial_state=rnn_state,
                                             dtype = tf.float32)
 
 
@@ -169,7 +170,7 @@ class ACTCell(rnn_cell.RNNCell):
 
     def ACTStep(self,prob,counter,state,input,acc_outputs,acc_states,acc_probs):
 
-        output, new_state = rnn.rnn(self.cell, [input], state, scope=type(self.cell).__name__)
+        output, new_state = rnn(self.cell, [input], state, scope=type(self.cell).__name__)
 
         prob_w = tf.get_variable("prob_w", [self.cell.state_size,1], trainable = False) #corrected to state_size
         prob_b = tf.get_variable("prob_b", [1], trainable = False)
@@ -212,6 +213,7 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
         return self._num_units
 
     def __call__(self, inputs, state, timestep = 0, scope=None):
+        timestep = random.randint(1, 10000)
 
         with vs.variable_scope(scope or type(self).__name__):
 
@@ -223,11 +225,11 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
 
             #dynamic set to true because we don't know how many N iterations will occur
             acc_probs = TensorArray(dtype = tf.float32, size = 1, dynamic_size = True, clear_after_read = False,
-                tensor_array_name = "accumulated_probabilities", infer_shape = True)
+                tensor_array_name = "accumulated_probabilities_{}".format(timestep), infer_shape = True)
             acc_outputs = TensorArray(dtype = tf.float32, size = 1, dynamic_size = True, clear_after_read = False,
-                tensor_array_name = "accumulated_outputs", infer_shape = True)
+                tensor_array_name = "accumulated_outputs_{}".format(timestep), infer_shape = True)
             acc_states = TensorArray(dtype = tf.float32, size = 1, dynamic_size = True, clear_after_read = False,
-                tensor_array_name = "accumulated_states", infer_shape = True)             
+                tensor_array_name = "accumulated_states_{}".format(timestep), infer_shape = True)
 
             # the predicate for stopping the while loop. Tensorflow demands that we have
             # all of the variables used in the while loop in the predicate.
@@ -246,12 +248,15 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
         acc_states = acc_states.pack()
         acc_outputs = acc_outputs.pack()
 
-        next_state = tf.reduce_sum(acc_probs * acc_states, reduction_indices = 0) #check reduction indices
-        output = tf.reduce_sum(acc_probs * acc_outputs, reduction_indices = 0)
+        # expand the dimensions of acc_probs to (1,iterations,1) so the broadcasting works
+        next_state = tf.reduce_sum(tf.expand_dims(tf.expand_dims(acc_probs,0),2) * acc_states, reduction_indices = 0) #check reduction indices
+        output = tf.reduce_sum(tf.expand_dims(tf.expand_dims(acc_probs,0),2) * acc_outputs, reduction_indices = 0)
+
+        next_state.set_shape([None, self.cell.state_size])
+        output.set_shape([None, self.cell.state_size])
 
         tf.add_to_collection("ACT_remainder", remainder)
         tf.add_to_collection("ACT_iterations", iterations)
-
 
         print('got through one complete timestep')
         return output, next_state
@@ -259,23 +264,21 @@ class ACTCell_TensorArray(rnn_cell.RNNCell):
     def ACTStep(self,prob,counter,state,input,acc_outputs,acc_states,acc_probs):
 
         #you may need to change this to rnn.rnn depending on tensorflow versions
-        output, new_state = rnn.rnn(self.cell, [input], state, scope=type(self.cell).__name__)
+        output, new_state = rnn(self.cell, [input], state, scope=type(self.cell).__name__)
 
         with tf.variable_scope('sigmoid_activation_for_pondering'):
             # prob_w = tf.get_variable("prob_w", [self.cell.state_size,1]) #corrected to state_size
             # prob_b = tf.get_variable("prob_b", [1])
             # p = tf.squeeze(tf.nn.sigmoid(tf.matmul(new_state,prob_w) + prob_b))
             # p = tf.nn.rnn_cell._linear(new_state[0], 1, True)
-            p = tf.squeeze(tf.nn.rnn_cell._linear(new_state[0], 1, True))
+            p = tf.squeeze(tf.nn.rnn_cell._linear(new_state, 1, True))
 
- 
-        acc_outputs.write(counter, output[0])
-        acc_states.write(counter, new_state[0])
-        acc_probs.write(counter, p)
 
-        
+        acc_outputs = acc_outputs.write(counter, output[0])
+        acc_states = acc_states.write(counter, new_state)
+        acc_probs = acc_probs.write(counter, p)
 
-        return [prob + p,counter + 1,new_state[0], input, acc_outputs,acc_states,acc_probs]
+        return [prob + p,counter + 1,new_state, input, acc_outputs,acc_states,acc_probs]
 
     def get_ponder_cost(self, epsilon):
 

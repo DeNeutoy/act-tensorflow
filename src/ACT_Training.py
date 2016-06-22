@@ -101,7 +101,7 @@ if __name__ == '__main__':
     logging = tf.logging
     flags.DEFINE_string("model_size", "small", "Size of model to train, either small, medium or large")
     flags.DEFINE_string("data_path", os.path.expanduser("~")+'/ptb/', "data_path")
-    flags.DEFINE_string("model_path", os.path.expanduser("~")+'/ptb/', "full path of a saved model to load")
+    flags.DEFINE_string("model_path", None, "full path of a saved model to load")
     flags.DEFINE_string("weights_dir", None, "full directory path to save weights into per epoch")
     flags.DEFINE_boolean("verbose", True, "Verbosity of the training")
     flags.DEFINE_boolean("debug", True, "Uses small corpuses for debugging purposes")
