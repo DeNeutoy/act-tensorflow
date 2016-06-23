@@ -14,6 +14,8 @@ def run_epoch(session, m, data, eval_op, verbose=False):
         cost, state, _ = session.run([m.cost, m.final_state, eval_op],
                                      {m.input_data: x,
                                       m.targets: y})
+        if verbose:
+          print('you successfully completed one entire batch')
         costs += cost
         iters += m.num_steps
 

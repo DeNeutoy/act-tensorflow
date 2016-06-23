@@ -68,8 +68,8 @@ class ACTCellMasking(rnn_cell.RNNCell):
 
 
         '''Calculate ponder cost parts. Reduce mean is used to normalize cost by the batch size'''
-        self.ACT_remainder.append(tf.reduce_mean(1 - prob)) #TODO: double check this
-        self.ACT_iterations.append(tf.reduce_mean(iterations))
+        # self.ACT_remainder.append(tf.reduce_mean(1 - prob)) #TODO: double check this
+        # self.ACT_iterations.append(tf.reduce_mean(iterations))
 
         print('got through one complete timestep in variable batch masking')
         return output, next_state

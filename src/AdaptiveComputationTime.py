@@ -32,9 +32,9 @@ class ACTModel(object):
 
     def __init__(self, config, is_training=False):
         self.config = config
-        self.batch_size = batch_size = 20
+        self.batch_size = batch_size = 4
         self.num_steps = num_steps = config.num_steps
-        self.hidden_size = hidden_size =  config.hidden_size
+        self.hidden_size = hidden_size = config.hidden_size
         self.num_layers = 1
         vocab_size = config.vocab_size
         self.max_grad_norm = config.max_grad_norm
@@ -54,7 +54,7 @@ class ACTModel(object):
             rnn_state = inner_cell.zero_state(self.batch_size, dtype=tf.float32)
 
         with tf.variable_scope("ACT"):
-            act = ACTCellMasking(self.config.hidden_size, inner_cell, 0.01, 10, self.batch_size)
+            act = ACTCellMasking(self.config.hidden_size, inner_cell, 0.01, max_computation = 2, batch_size = self.batch_size)
             #act = ACTCell_VariableBatchSize(self.config.hidden_size, inner_cell, 0.01, 10, batch_size = self.batch_size)
 
         embedding = tf.get_variable('embedding', [self.config.vocab_size, self.config.hidden_size])
@@ -80,7 +80,7 @@ class ACTModel(object):
                 vocab_size)
 
 
-        self.cost = tf.reduce_sum(loss) / batch_size + act.CalculatePonderCost(time_penalty = 0.01)
+        self.cost = tf.reduce_sum(loss) / batch_size #+ act.CalculatePonderCost(time_penalty = 0.01)
         self.final_state = self.outputs[-1]
 
         if is_training:
