@@ -10,6 +10,7 @@ from collections import defaultdict
 import tensorflow as tf
 from epoch import run_epoch
 from config import SmallConfig
+from variable_batch_masking import ACTCellMasking
 import random
 try:
     from tensorflow.python.ops.nn import rnn_cell, rnn, seq2seq
@@ -26,13 +27,12 @@ from tensorflow.python.ops.tensor_array_ops import TensorArray
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import variable_scope as vs
 
-print('youre using this script nick')
 
 class ACTModel(object):
 
     def __init__(self, config, is_training=False):
         self.config = config
-        self.batch_size = batch_size = 7
+        self.batch_size = batch_size = 20
         self.num_steps = num_steps = config.num_steps
         self.hidden_size = hidden_size =  config.hidden_size
         self.num_layers = 1
@@ -54,8 +54,8 @@ class ACTModel(object):
             rnn_state = inner_cell.zero_state(self.batch_size, dtype=tf.float32)
 
         with tf.variable_scope("ACT"):
-            act = ACTCell_BatchSize1(self.config.hidden_size, inner_cell, 0.01, 10)
-            act = ACTCell_VariableBatchSize(self.config.hidden_size, inner_cell, 0.01, 10, batch_size = self.batch_size)
+            act = ACTCellMasking(self.config.hidden_size, inner_cell, 0.01, 10, self.batch_size)
+            #act = ACTCell_VariableBatchSize(self.config.hidden_size, inner_cell, 0.01, 10, batch_size = self.batch_size)
 
         embedding = tf.get_variable('embedding', [self.config.vocab_size, self.config.hidden_size])
         inputs = tf.nn.embedding_lookup(embedding, self.input_data)
@@ -234,7 +234,7 @@ class ACTCell_VariableBatchSize(rnn_cell.RNNCell):
 
             prob_list, iterations_list, acc_outputs_list, acc_states_list = [], [], [], []
 
-            for b in xrange(self.batch_size):
+            for b in range(self.batch_size):
                 prob_list[b],iterations_list[b],_,_,acc_outputs_list[b],acc_states_list[b] = control_flow_ops.while_loop(
 
                     pred,self.ACTStep,[prob_unpacked[b],counter_unpacked[b],states_unpacked[b],inputs_unpacked[b], acc_outputs_unpacked[b], acc_states_unpacked[b]])
