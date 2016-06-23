@@ -30,7 +30,7 @@ class ACTCellMasking(rnn_cell.RNNCell):
         self.one_minus_eps = tf.constant(1.0 - epsilon, tf.float32,[self.batch_size])
         self._num_units = num_units
         self.cell = cell
-        self.N = tf.constant(max_computation, tf.int32,[self.batch_size])
+        self.N = tf.constant(max_computation, tf.float32,[self.batch_size])
 
     @property
     def input_size(self):
@@ -48,7 +48,7 @@ class ACTCellMasking(rnn_cell.RNNCell):
 
             # define within cell constants/ counters used to control while loop
             prob = tf.constant(0.0,tf.float32,[self.batch_size], name="prob")
-            counter = tf.constant(0, tf.int32,[self.batch_size], name="counter")
+            counter = tf.constant(0.0, tf.float32,[self.batch_size], name="counter")
             acc_outputs = tf.zeros_like(state, tf.float32, name="output_accumulator")
             acc_states = tf.zeros_like(state, tf.float32, name="state_accumulator")
 
@@ -64,8 +64,9 @@ class ACTCellMasking(rnn_cell.RNNCell):
             prob,iterations,_,_,output,next_state = control_flow_ops.while_loop(
                 pred,self.ACTStep,[prob,counter,state,inputs, acc_outputs, acc_states])
 
+
         tf.add_to_collection("ACT_remainder",
-                             tf.reduce_sum(tf.constant(1.0,tf.float32, self.batch_size)-prob))  # TODO: check if this is right
+                             tf.reduce_sum(tf.constant(1.0,tf.float32, [self.batch_size]) - prob))  # TODO: check if this is right
         tf.add_to_collection("ACT_iterations", tf.reduce_sum(iterations))
 
         print('got through one complete timestep')
@@ -117,7 +118,8 @@ class ACTCellMasking(rnn_cell.RNNCell):
 
         acc_state, acc_output = tf.cond(tf.equal(tf.reduce_sum(batch_mask),0.0), use_remainder, normal)
 
-        counter += tf.constant(1,tf.int32,[self.batch_size])
+        # only increment the counter for the examples which are still running
+        counter += tf.mul(tf.constant(1.0,tf.float32,[self.batch_size]),batch_mask)
 
         return [prob,counter,new_state, input, acc_output,acc_state]
 
