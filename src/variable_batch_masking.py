@@ -53,18 +53,16 @@ class ACTCellMasking(rnn_cell.RNNCell):
             counter = tf.constant(0.0, tf.float32,[self.batch_size], name="counter")
             acc_outputs = tf.zeros_like(state, tf.float32, name="output_accumulator")
             acc_states = tf.zeros_like(state, tf.float32, name="state_accumulator")
-
+            batch_mask = tf.constant(True, tf.bool,[self.batch_size])
 
             # the predicate for stopping the while loop. Tensorflow demands that we have
             # all of the variables used in the while loop in the predicate.
-            pred = lambda prob,counter,state,input,acc_output,acc_state:tf.logical_and(
-                #
-                gen_math_ops._all(tf.less(prob,self.one_minus_eps),0),
+            pred = lambda batch_mask,prob,counter,state,input,acc_output,acc_state:\
+                tf.reduce_any(tf.logical_and(tf.less(prob,self.one_minus_eps),tf.less(counter,self.N)))
                                # only stop if all of the batch have passed either threshold
-                               gen_math_ops._all(tf.less(counter,self.N),0))
 
-            prob,iterations,_,_,output,next_state = control_flow_ops.while_loop(
-                pred,self.ACTStep,[prob,counter,state,inputs, acc_outputs, acc_states])
+            _,prob,iterations,_,_,output,next_state = control_flow_ops.while_loop(
+                pred,self.ACTStep,[batch_mask,prob,counter,state,inputs, acc_outputs, acc_states])
 
 
         '''Calculate ponder cost parts. Reduce mean is used to normalize cost by the batch size'''
@@ -81,7 +79,7 @@ class ACTCellMasking(rnn_cell.RNNCell):
             tf.add_n(self.ACT_remainder)/len(self.ACT_remainder) + 
             tf.to_float(tf.add_n(self.ACT_iterations)/len(self.ACT_iterations)))
 
-    def ACTStep(self,prob,counter,state,input,acc_outputs,acc_states):
+    def ACTStep(self,batch_mask,prob,counter,state,input,acc_outputs,acc_states):
 
         # input is now [batch_size, hidden_size]
         output, new_state = rnn(self.cell, [input], state, scope=type(self.cell).__name__)
@@ -95,8 +93,11 @@ class ACTCellMasking(rnn_cell.RNNCell):
         # a batch has passed the stopping point) so we carry none of it forward.
         #  If, by adding p, we pass the boundary, we don't add p onto prob - this allows us to
         # use the use_remainder() as normal for all steps after ALL examples have taken their max time.
-        batch_mask = tf.cast(tf.less(prob + p,self.one_minus_eps), tf.float32)
-        p_masked = tf.mul(p, batch_mask)
+
+        # multiply by the previous mask as if we stopped before, we don't want to start again
+        new_batch_mask = tf.logical_and(tf.less(prob + p,self.one_minus_eps),batch_mask)
+        float_mask = tf.cast(new_batch_mask, tf.float32)
+        p_masked = tf.mul(p, float_mask)
 
         # only increase the prob accumulator for the examples
         # which haven't already passed the threshold. This
@@ -123,11 +124,13 @@ class ACTCellMasking(rnn_cell.RNNCell):
 
         # halting condition: if the batch mask is all zeros, then all batches have finished.
         # therefore, if the sum of the mask = 0, then we use the remainder.
+        counter_condition = tf.less(counter,self.N)
+        condition = tf.reduce_any(tf.logical_and(new_batch_mask,counter_condition))
 
-        acc_state, acc_output = tf.cond(tf.equal(tf.reduce_sum(batch_mask),0.0), use_remainder, normal)
+        acc_state, acc_output = tf.cond(condition, normal, use_remainder)
 
         # only increment the counter for the examples which are still running
-        # counter += tf.mul(tf.constant(1.0,tf.float32,[self.batch_size]),batch_mask)
-        counter += tf.constant(1.0,tf.float32,[self.batch_size]) 
-        return [prob,counter,new_state, input, acc_output,acc_state]
+        #counter += tf.mul(tf.constant(1.0,tf.float32,[self.batch_size]),float_mask)
+        counter += tf.constant(1.0,tf.float32,[self.batch_size])
+        return [new_batch_mask,prob,counter,new_state, input, acc_output,acc_state]
 
