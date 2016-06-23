@@ -54,7 +54,7 @@ class ACTModel(object):
             rnn_state = inner_cell.zero_state(self.batch_size, dtype=tf.float32)
 
         with tf.variable_scope("ACT"):
-            act = ACTCellMasking(self.config.hidden_size, inner_cell, 0.01, max_computation = 2, batch_size = self.batch_size)
+            act = ACTCellMasking(self.config.hidden_size, inner_cell, 0.01, max_computation = 100, batch_size = self.batch_size)
             #act = ACTCell_VariableBatchSize(self.config.hidden_size, inner_cell, 0.01, 10, batch_size = self.batch_size)
 
         embedding = tf.get_variable('embedding', [self.config.vocab_size, self.config.hidden_size])
