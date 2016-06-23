@@ -68,8 +68,8 @@ class ACTCellMasking(rnn_cell.RNNCell):
 
 
         '''Calculate ponder cost parts. Reduce mean is used to normalize cost by the batch size'''
-        # self.ACT_remainder.append(tf.reduce_mean(1 - prob)) #TODO: double check this
-        # self.ACT_iterations.append(tf.reduce_mean(iterations))
+        self.ACT_remainder.append(tf.reduce_mean(1 - prob)) #TODO: double check this
+        self.ACT_iterations.append(tf.reduce_mean(iterations))
 
         print('got through one complete timestep in variable batch masking')
         return output, next_state
@@ -78,7 +78,8 @@ class ACTCellMasking(rnn_cell.RNNCell):
         '''returns tensor of shape [1] which is the total ponder cost'''
 
         return time_penalty * tf.reduce_sum(
-            tf.add_n(self.ACT_remainder) + tf.to_float(tf.add_n(self.ACT_iterations)))
+            tf.add_n(self.ACT_remainder)/len(self.ACT_remainder) + 
+            tf.to_float(tf.add_n(self.ACT_iterations)/len(self.ACT_iterations)))
 
     def ACTStep(self,prob,counter,state,input,acc_outputs,acc_states):
 
@@ -113,7 +114,6 @@ class ACTCellMasking(rnn_cell.RNNCell):
             return acc_state, acc_output
 
         def normal():
-
             p_expanded = tf.expand_dims(p_masked,1)
             tiled_p = tf.tile(p_expanded,[1,self.output_size])
 
@@ -127,7 +127,7 @@ class ACTCellMasking(rnn_cell.RNNCell):
         acc_state, acc_output = tf.cond(tf.equal(tf.reduce_sum(batch_mask),0.0), use_remainder, normal)
 
         # only increment the counter for the examples which are still running
-        counter += tf.mul(tf.constant(1.0,tf.float32,[self.batch_size]),batch_mask)
-
+        # counter += tf.mul(tf.constant(1.0,tf.float32,[self.batch_size]),batch_mask)
+        counter += tf.constant(1.0,tf.float32,[self.batch_size]) 
         return [prob,counter,new_state, input, acc_output,acc_state]
 
