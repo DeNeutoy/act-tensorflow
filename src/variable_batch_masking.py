@@ -64,8 +64,9 @@ class ACTCellMasking(rnn_cell.RNNCell):
             prob,iterations,_,_,output,next_state = control_flow_ops.while_loop(
                 pred,self.ACTStep,[prob,counter,state,inputs, acc_outputs, acc_states])
 
-        tf.add_to_collection("ACT_remainder", 1.0-prob)  # TODO: check if this is right
-        tf.add_to_collection("ACT_iterations", iterations)
+        tf.add_to_collection("ACT_remainder",
+                             tf.reduce_sum(tf.constant(1.0,tf.float32, self.batch_size)-prob))  # TODO: check if this is right
+        tf.add_to_collection("ACT_iterations", tf.reduce_sum(iterations))
 
         print('got through one complete timestep')
         return output, next_state
@@ -76,7 +77,7 @@ class ACTCellMasking(rnn_cell.RNNCell):
         output, new_state = rnn(self.cell, [input], state, scope=type(self.cell).__name__)
 
         with tf.variable_scope('sigmoid_activation_for_pondering'):
-            p = tf.squeeze(tf.nn.rnn_cell._linear(new_state, 1, True))
+            p = tf.squeeze(tf.sigmoid(tf.nn.rnn_cell._linear(new_state, 1, True)))
 
         # here we create a mask on the p vector, which we then multiply with the state/output.
         # if p[i] = 0, then we have passed the remainder point for that example, so we multiply
