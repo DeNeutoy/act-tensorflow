@@ -4,19 +4,9 @@ from __future__ import division
 from __future__ import print_function
 import pickle, os, sys
 import tensorflow as tf
-try:
-    from tensorflow.python.ops.nn import rnn_cell, rnn, seq2seq
-except:
-    sys.path.insert(0, os.environ['HOME'])
-    from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced as rnn_cell
-    from Project_RNN_Enhancement.rnn_enhancement import rnn_enhanced as rnn
-    from Project_RNN_Enhancement.rnn_enhancement import victory_music
-
-    seq2seq = tf.nn.seq2seq
+from tensorflow.python.ops.nn import rnn_cell, rnn, seq2seq
 from tensorflow.python.ops import control_flow_ops, gen_math_ops
 from tensorflow.python.ops import variable_scope as vs
-
-
 
 
 class ACTCellMasking(rnn_cell.RNNCell):
@@ -55,7 +45,7 @@ class ACTCellMasking(rnn_cell.RNNCell):
             acc_outputs = tf.zeros_like(state, tf.float32, name="output_accumulator")
             acc_states = tf.zeros_like(state, tf.float32, name="state_accumulator")
             batch_mask = tf.constant(True, tf.bool,[self.batch_size])
-            batch_mask = tf.Print(batch_mask, [batch_mask], message = 'this is batch mask outide the while:', summarize = 5)
+
             # the predicate for stopping the while loop. Tensorflow demands that we have
             # all of the variables used in the while loop in the predicate.
 
@@ -71,7 +61,6 @@ class ACTCellMasking(rnn_cell.RNNCell):
         self.ACT_remainder.append(tf.reduce_mean(1 - prob)) #TODO: double check this
         self.ACT_iterations.append(tf.reduce_mean(iterations))
 
-        print('got through one complete timestep in variable batch masking')
         return output, next_state
 
     def CalculatePonderCost(self, time_penalty):

@@ -16,7 +16,8 @@ def run_epoch(session, m, data, eval_op, verbose=False):
                                       m.targets: y})
         
 
-        if verbose and step % 100 == 0: print('you successfully completed one entire batch -- cost', cost)
+        # if verbose and step % 100 == 0: print('you successfully completed one entire batch -- cost', cost)
+        if verbose: print('you successfully completed one entire batch -- cost', cost)
         costs += cost
         iters += m.num_steps
 
