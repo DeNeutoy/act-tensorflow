@@ -41,7 +41,7 @@ class ACTCellMasking(rnn_cell.RNNCell):
             # define within cell constants/ counters used to control while loop
             prob = tf.constant(0.0,tf.float32,[self.batch_size], name="prob")
             prob_compare = tf.constant(0.0,tf.float32,[self.batch_size], name="prob_compare")
-            counter = tf.constant(1.0, tf.float32,[self.batch_size], name="counter")
+            counter = tf.constant(0.0, tf.float32,[self.batch_size], name="counter")
             acc_outputs = tf.zeros_like(state, tf.float32, name="output_accumulator")
             acc_states = tf.zeros_like(state, tf.float32, name="state_accumulator")
             batch_mask = tf.constant(True, tf.bool,[self.batch_size])
@@ -94,8 +94,9 @@ class ACTCellMasking(rnn_cell.RNNCell):
         # which haven't already passed the threshold. This
         # means that we can just use the final prob value per
         # example to determine the remainder.
-        prob_compare = prob + p #are we sure we want to put prob compare before prob += p*float mask?
         prob += p * float_mask
+
+        prob_compare += p * tf.cast(batch_mask, tf.float32)
 
         def use_remainder():
             remainder = tf.constant(1.0, tf.float32,[self.batch_size]) - prob
@@ -116,6 +117,9 @@ class ACTCellMasking(rnn_cell.RNNCell):
 
         # halting condition: if the batch mask is all zeros, then all batches have finished.
         # therefore, if the sum of the mask = 0, then we use the remainder.
+        counter += tf.constant(1.0,tf.float32,[self.batch_size]) * float_mask
+
+
         counter_condition = tf.less(counter,self.N)
         condition = tf.reduce_any(tf.logical_and(new_batch_mask,counter_condition))
 
@@ -125,6 +129,5 @@ class ACTCellMasking(rnn_cell.RNNCell):
 
 
         # only increment the counter for the examples which are still running
-        counter += tf.constant(1.0,tf.float32,[self.batch_size]) * float_mask
         # counter += tf.constant(1.0,tf.float32,[self.batch_size])
         return [new_batch_mask,prob_compare,prob,counter,new_state, input, acc_output,acc_state]
