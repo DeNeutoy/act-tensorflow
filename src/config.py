@@ -69,7 +69,7 @@ class TitanXConfig(object):
   max_max_epoch = 55
   keep_prob = 0.35
   lr_decay = 1 / 1.10
-  batch_size = 128
+  batch_size = 64
   vocab_size = 10000
   max_computation = 50
   epsilon = 0.01
