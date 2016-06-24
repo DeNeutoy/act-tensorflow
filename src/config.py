@@ -15,8 +15,9 @@ class SmallConfig(object):
   max_max_epoch = 13
   keep_prob = 1.0
   lr_decay = 0.5
-  batch_size = 64 #changed from 20
+  batch_size = 128 #changed from 20
   vocab_size = 10000
+  max_computation = 50
 
 
 class MediumConfig(object):
@@ -33,6 +34,7 @@ class MediumConfig(object):
   lr_decay = 0.8
   batch_size = 20
   vocab_size = 10000
+  max_computation = 50
 
 
 class LargeConfig(object):
@@ -49,6 +51,7 @@ class LargeConfig(object):
   lr_decay = 1 / 1.15
   batch_size = 20
   vocab_size = 10000
+  max_computation = 50
 
 
 class TitanXConfig(object):
@@ -58,13 +61,15 @@ class TitanXConfig(object):
   max_grad_norm = 10
   num_layers = 2
   num_steps = 35
-  hidden_size = 1024
+  hidden_size = 1500
   max_epoch = 14
   max_max_epoch = 55
   keep_prob = 0.35
   lr_decay = 1 / 1.15
-  batch_size = 64
+  batch_size = 128
   vocab_size = 10000
+  max_computation = 50
+
 
 
   """Debugging code for models"""
