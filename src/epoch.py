@@ -9,6 +9,7 @@ def run_epoch(session, m, data, eval_op, verbose=False):
     start_time = time.time()
     costs = 0.0
     iters = 0
+    num_batch_steps_completed = 0
 
     for step, (x, y) in enumerate(reader.ptb_iterator(data, m.batch_size, m.num_steps)):
         cost, state, _ = session.run([m.cost, m.final_state, eval_op],
@@ -17,9 +18,11 @@ def run_epoch(session, m, data, eval_op, verbose=False):
         
 
         # if verbose and step % 100 == 0: print('you successfully completed one entire batch -- cost', cost)
-        if verbose: print('you successfully completed one entire batch -- cost', cost)
+        if verbose: print 'you successfully completed one entire batch -- cost', cost, 'time is', time.ctime(), 'num_batch_steps_completed:', num_batch_steps_completed
+
         costs += cost
         iters += m.num_steps
+        num_batch_steps_completed += 1
 
         if verbose and step % (epoch_size // 10) == 10:
             print("%.3f perplexity: %.3f speed: %.0f wps" %

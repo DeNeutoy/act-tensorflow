@@ -82,7 +82,7 @@ class ACTModel(object):
                 vocab_size)
 
 
-        self.cost = tf.reduce_sum(loss) / batch_size + act.CalculatePonderCost(time_penalty = 0.01)
+        self.cost = tf.reduce_sum(loss) / batch_size #+ act.CalculatePonderCost(time_penalty = 0.01)
         self.final_state = self.outputs[-1]
 
         if is_training:
