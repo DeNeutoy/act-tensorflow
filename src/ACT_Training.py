@@ -3,7 +3,6 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import pickle
 from datetime import datetime
 
 import config as cf
@@ -11,11 +10,7 @@ import reader as reader
 import tensorflow as tf
 from epoch import run_epoch
 from AdaptiveComputationTime import ACTModel
-try:
-    from tensorflow.models.rnn import rnn_cell, rnn, seq2seq
-except:
-    pass
-from tensorflow.python.ops import array_ops
+
 
 import saveload
 
@@ -47,11 +42,8 @@ def main(unused_args):
     else:
         raw_data = reader.ptb_raw_data(FLAGS.data_path, "emma.txt", "emma.val.txt", "emma.test.txt")
 
-
     # load up PTB data
     train_data, val_data, test_data, vocab, word_to_id = raw_data
-    #pickle.dump(word_to_id, open(weights_dir + "/word_to_id.pkl", "wb"))
-    id_to_word = {v:k for (k,v) in word_to_id.items()}
 
     with tf.Graph().as_default(), tf.Session() as session:
         initialiser = tf.random_uniform_initializer(-config.init_scale, config.init_scale)
@@ -59,7 +51,7 @@ def main(unused_args):
         with tf.variable_scope('model', reuse=None, initializer=initialiser):
             m = ACTModel(config,is_training=True)
 
-            #### Reload Model ####
+            # if we have a saved/pre-trained model, load it.
             if saved_model_path is not None:
                 saveload.main(saved_model_path, session)
 
@@ -79,16 +71,15 @@ def main(unused_args):
 
             if verbose:
                 print("Epoch: {} Learning rate: {}".format(i + 1, session.run(m.lr)))
-                print("Epoch: {} Train Perplexity: {}".format(i + 1, train_loss))
-                print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_loss))
+                print("Epoch: {} Train Loss: {}".format(i + 1, train_loss))
+                print("Epoch: %d Valid Loss: %.3f" % (i + 1, valid_loss))
 
-            #######    Model Hooks    ########
+            # save weights in a pickled dictionary format
             if weights_dir is not None:
                 date = "{:%m.%d.%H.%M}".format(datetime.now())
                 saveload.main(weights_dir + "/Epoch_{:02}Train_{:0.3f}Val_{:0.3f}date{}.pkl"
                               .format(i+1,train_loss,valid_loss, date), session)
 
-            #temperature_sample(session, m_test, [word_to_id,id_to_word], 30, temp=0.9, text_seed= "this is a" )
 
         test_loss = run_epoch(session, m_test, test_data, tf.no_op())
     if verbose:

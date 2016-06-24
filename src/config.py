@@ -10,15 +10,16 @@ class SmallConfig(object):
   max_grad_norm = 5     # changed from 5
   num_layers = 2
   num_steps = 20
-  hidden_size = 300 # should be 200
+  hidden_size = 200 # should be 200
   max_epoch = 4
   max_max_epoch = 13
   keep_prob = 1.0
   lr_decay = 0.5
-  batch_size = 128 #changed from 20
+  batch_size = 20 #changed from 20
   vocab_size = 10000
   max_computation = 50
-
+  epsilon = 0.01
+  ponder_time_penalty = 0.01
 
 class MediumConfig(object):
   """Medium config."""
@@ -35,7 +36,8 @@ class MediumConfig(object):
   batch_size = 20
   vocab_size = 10000
   max_computation = 50
-
+  epsilon = 0.01
+  ponder_time_penalty = 0.01
 
 class LargeConfig(object):
   """Large config."""
@@ -52,7 +54,8 @@ class LargeConfig(object):
   batch_size = 20
   vocab_size = 10000
   max_computation = 50
-
+  epsilon = 0.01
+  ponder_time_penalty = 0.01
 
 class TitanXConfig(object):
   """For Titan X -- Faster Training"""
@@ -69,30 +72,6 @@ class TitanXConfig(object):
   batch_size = 128
   vocab_size = 10000
   max_computation = 50
-
-
-
-  """Debugging code for models"""
-  # import sys
-# with tf.Session() as sess:
-#     sess.run(tf.initialize_all_variables())
-#     m = self.lstm_model
-#     n = self.rnn_model
-#     o = self.linear_model
-#     from numpy.random import randint
-#     x = randint(0,10,[batch_size, num_steps])
-#     y = randint(0,10,[batch_size, num_steps])
-#
-#     out = sess.run(self.train_op,
-#                    {m.input_data: x,
-#                     m.targets: y,
-#                     m.initial_state: self.lstm_model.initial_state.eval(),
-#                     n.input_data: x,
-#                     n.targets: y,
-#                     n.initial_state: self.rnn_model.initial_state.eval(),
-#                     o.input_data: x,
-#                     o.targets: y,
-#                     o.initial_state: self.linear_model.initial_state.eval()})
-#     print(out)
-# sys.exit()
+  epsilon = 0.01
+  ponder_time_penalty = 0.01
 
