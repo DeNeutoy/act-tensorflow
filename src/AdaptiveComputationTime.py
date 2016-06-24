@@ -61,9 +61,9 @@ class ACTModel(object):
                 vocab_size)
 
 
-        # add up loss and retrive batch-normalised ponder cost: sum N + sum Remainder
+        # add up loss and retrieve batch-normalised ponder cost: sum N + sum Remainder
         self.cost = tf.reduce_sum(loss) / batch_size + \
-                    act.CalculatePonderCost(time_penalty = config.ponder_time_penalty)
+                    act.CalculatePonderCost(time_penalty = self.config.ponder_time_penalty)
 
         self.final_state = self.outputs[-1]
 
@@ -75,7 +75,7 @@ class ACTModel(object):
             grads, _ = tf.clip_by_global_norm(tf.gradients(self.cost, tvars), self.max_grad_norm)
 
             #optimizer = tf.train.GradientDescentOptimizer(self.lr)
-            optimizer = tf.train.AdamOptimizer(0.001)
+            optimizer = tf.train.AdamOptimizer(self.config.learning_rate)
 
             self.train_op = optimizer.apply_gradients(zip(grads, tvars))
 

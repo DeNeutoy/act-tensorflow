@@ -22,6 +22,8 @@ def get_config(conf):
         return cf.MediumConfig
     elif conf == "large":
         return cf.LargeConfig
+    elif conf == "titanx":
+        return cf.TitanXConfig
 
 
 def main(unused_args):

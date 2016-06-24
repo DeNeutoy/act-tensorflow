@@ -6,7 +6,7 @@ from __future__ import print_function
 class SmallConfig(object):
   """Small config."""
   init_scale = 0.1
-  learning_rate = 1.0
+  learning_rate = 0.0005
   max_grad_norm = 5     # changed from 5
   num_layers = 2
   num_steps = 20
@@ -24,7 +24,7 @@ class SmallConfig(object):
 class MediumConfig(object):
   """Medium config."""
   init_scale = 0.05
-  learning_rate = 1.0
+  learning_rate = 0.0005
   max_grad_norm = 5
   num_layers = 2
   num_steps = 35
@@ -42,7 +42,7 @@ class MediumConfig(object):
 class LargeConfig(object):
   """Large config."""
   init_scale = 0.04
-  learning_rate = 1.0
+  learning_rate = 0.0005
   max_grad_norm = 10
   num_layers = 2
   num_steps = 35
@@ -60,7 +60,7 @@ class LargeConfig(object):
 class TitanXConfig(object):
   """For Titan X -- Faster Training"""
   init_scale = 0.04
-  learning_rate = 1.0
+  learning_rate = 0.0005
   max_grad_norm = 10
   num_layers = 2
   num_steps = 35
@@ -68,7 +68,7 @@ class TitanXConfig(object):
   max_epoch = 14
   max_max_epoch = 55
   keep_prob = 0.35
-  lr_decay = 1 / 1.15
+  lr_decay = 1 / 1.10
   batch_size = 128
   vocab_size = 10000
   max_computation = 50
