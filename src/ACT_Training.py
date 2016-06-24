@@ -24,6 +24,8 @@ def get_config(conf):
         return cf.LargeConfig
     elif conf == "titanx":
         return cf.TitanXConfig
+    else:
+        raise ValueError('did not enter acceptable model size:', conf)
 
 
 def main(unused_args):

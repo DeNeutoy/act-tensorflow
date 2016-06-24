@@ -13,12 +13,14 @@ class ACTModel(object):
 
     def __init__(self, config, is_training=False):
         self.config = config
-        self.batch_size = batch_size = 4
+        self.batch_size = batch_size = config.batch_size
         self.num_steps = num_steps = config.num_steps
         self.hidden_size = hidden_size = config.hidden_size
         self.num_layers = 1
         vocab_size = config.vocab_size
         self.max_grad_norm = config.max_grad_norm
+
+        print('batch size:', self.batch_size, 'num_steps:', self.num_steps, 'hidden_size:', self.hidden_size, 'num_layers:', self.num_layers, 'now constructing model...')
 
         # placeholders for inputs
         self.input_data = tf.placeholder(tf.int32, [batch_size, num_steps])
