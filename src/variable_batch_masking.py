@@ -14,12 +14,13 @@ class ACTCellMasking(rnn_cell.RNNCell):
     """An RNN cell implementing Graves' Adaptive Computation Time algorithm"""
 
 
-    def __init__(self, num_units, cell, epsilon, max_computation, batch_size):
+    def __init__(self, num_units, cell, epsilon, max_computation, batch_size, use_lstm = False):
 
         self.batch_size = batch_size
         self.one_minus_eps = tf.constant(1.0 - epsilon, tf.float32,[self.batch_size])
         self._num_units = num_units
         self.cell = cell
+        self.use_lstm = use_lstm
         self.N = tf.constant(max_computation, tf.float32,[self.batch_size])
         self.ACT_remainder = []
         self.ACT_iterations = []
@@ -75,8 +76,14 @@ class ACTCellMasking(rnn_cell.RNNCell):
         # input is now [batch_size, hidden_size]
         output, new_state = rnn(self.cell, [input], state, scope=type(self.cell).__name__)
 
+        
+        if self.use_lstm:
+            input_for_eval_halting_p, _ = tf.split(1,2,new_state)
+        else:
+            input_for_eval_halting_p = new_state
+
         with tf.variable_scope('sigmoid_activation_for_pondering'):
-            p = tf.squeeze(tf.sigmoid(tf.nn.rnn_cell._linear(new_state, 1, True)))
+            p = tf.squeeze(tf.sigmoid(tf.nn.rnn_cell._linear(input_for_eval_halting_p, 1, True)))
 
         # here we create a mask on the p vector, which we then multiply with the state/output.
         # if p[i] = 0, then we have passed the remainder point for that example, so we multiply
@@ -101,18 +108,19 @@ class ACTCellMasking(rnn_cell.RNNCell):
         def use_remainder():
             remainder = tf.constant(1.0, tf.float32,[self.batch_size]) - prob
             remainder_expanded = tf.expand_dims(remainder,1)
-            tiled_remainder = tf.tile(remainder_expanded,[1,self.output_size])
+            #leavesbreathe commented out the tiling below for lstm implementation
+            # tiled_remainder = tf.tile(remainder_expanded,[1,self.output_size])
 
-            acc_state = tf.add(tf.mul(new_state,tiled_remainder), acc_states)
-            acc_output = tf.add(tf.mul(output[0], tiled_remainder), acc_outputs)
+            acc_state = tf.add(tf.mul(new_state,remainder_expanded), acc_states)
+            acc_output = tf.add(tf.mul(output[0], remainder_expanded), acc_outputs)
             return acc_state, acc_output
 
         def normal():
             p_expanded = tf.expand_dims(p*float_mask,1)
-            tiled_p = tf.tile(p_expanded,[1,self.output_size])
+            # tiled_p = tf.tile(p_expanded,[1,self.output_size])
 
-            acc_state = tf.add(tf.mul(new_state,tiled_p), acc_states)
-            acc_output = tf.mul(output[0], tiled_p) + acc_outputs
+            acc_state = tf.add(tf.mul(new_state, p_expanded), acc_states)
+            acc_output = tf.mul(output[0], p_expanded) + acc_outputs
             return acc_state, acc_output
 
         # halting condition: if the batch mask is all zeros, then all batches have finished.

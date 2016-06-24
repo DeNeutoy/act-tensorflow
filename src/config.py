@@ -20,6 +20,7 @@ class SmallConfig(object):
   max_computation = 50
   epsilon = 0.01
   ponder_time_penalty = 0.01
+  use_lstm = False
 
 class MediumConfig(object):
   """Medium config."""
@@ -38,6 +39,7 @@ class MediumConfig(object):
   max_computation = 50
   epsilon = 0.01
   ponder_time_penalty = 0.01
+  use_lstm = False
 
 class LargeConfig(object):
   """Large config."""
@@ -56,6 +58,7 @@ class LargeConfig(object):
   max_computation = 50
   epsilon = 0.01
   ponder_time_penalty = 0.01
+  use_lstm = False
 
 class TitanXConfig(object):
   """For Titan X -- Faster Training"""
@@ -74,4 +77,5 @@ class TitanXConfig(object):
   max_computation = 50
   epsilon = 0.01
   ponder_time_penalty = 0.01
+  use_lstm = False
 

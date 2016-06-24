@@ -19,6 +19,7 @@ class ACTModel(object):
         self.num_layers = 1
         vocab_size = config.vocab_size
         self.max_grad_norm = config.max_grad_norm
+        self.use_lstm = config.use_lstm
 
         print('batch size:', self.batch_size, 'num_steps:', self.num_steps, 'hidden_size:', self.hidden_size, 'num_layers:', self.num_layers, 'now constructing model...')
 
@@ -34,11 +35,15 @@ class ACTModel(object):
 
         # set up ACT cell and inner rnn-type cell for use inside the ACT cell
         with tf.variable_scope("rnn"):
-            inner_cell = rnn_cell.GRUCell(self.config.hidden_size)
+            if self.use_lstm:
+                inner_cell = rnn_cell.BasicLSTMCell(self.config.hidden_size)
+            else:
+                inner_cell = rnn_cell.GRUCell(self.config.hidden_size)
 
         with tf.variable_scope("ACT"):
             act = ACTCell(self.config.hidden_size, inner_cell, config.epsilon,
-                          max_computation = config.max_computation, batch_size = self.batch_size)
+                          max_computation = config.max_computation, batch_size = self.batch_size,
+                          use_lstm = self.use_lstm)
 
 
 
