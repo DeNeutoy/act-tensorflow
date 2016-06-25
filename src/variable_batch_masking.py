@@ -86,7 +86,7 @@ class ACTCellMasking(rnn_cell.RNNCell):
                     with tf.variable_scope('mlp_layer_'+str(layer)):
                         input_for_eval_halting_p = tf.nn.relu(tf.nn.rnn_cell._linear(input_for_eval_halting_p, self.output_size, True))
                 with tf.variable_scope('mlp_second_layer'):
-                    p = tf.squeeze(tf.sigmoid(tf.nn.rnn_cell._linear(first_layer_mlp, 1, True, 1.0)))
+                    p = tf.squeeze(tf.sigmoid(tf.nn.rnn_cell._linear(input_for_eval_halting_p, 1, True, 1.0)))
             else:
                 p = tf.squeeze(tf.sigmoid(tf.nn.rnn_cell._linear(input_for_eval_halting_p, 1, True, 1.0)))
         return p
