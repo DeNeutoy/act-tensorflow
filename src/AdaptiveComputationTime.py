@@ -41,9 +41,11 @@ class ACTModel(object):
                 inner_cell = rnn_cell.GRUCell(self.config.hidden_size)
 
         with tf.variable_scope("ACT"):
+            # act = ACTCell(self.config.hidden_size, inner_cell, config.epsilon,
+            #               max_computation = config.max_computation, batch_size = self.batch_size,
+            #               use_lstm = self.use_lstm)
             act = ACTCell(self.config.hidden_size, inner_cell, config.epsilon,
-                          max_computation = config.max_computation, batch_size = self.batch_size,
-                          use_lstm = self.use_lstm)
+                          max_computation = config.max_computation, batch_size = self.batch_size)
 
 
 

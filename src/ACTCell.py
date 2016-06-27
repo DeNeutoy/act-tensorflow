@@ -49,6 +49,9 @@ class ACTCell(rnn_cell.RNNCell):
             # While loop stops when this predicate is FALSE.
             # Ie all (probability < 1-eps AND counter < N) are false.
 
+            #x = self.ACTStep(batch_mask,prob_compare,prob,counter,state,inputs,acc_outputs,acc_states)
+
+
             pred = lambda batch_mask,prob_compare,prob,\
                           counter,state,input,acc_output,acc_state:\
                 tf.reduce_any(
@@ -89,7 +92,15 @@ class ACTCell(rnn_cell.RNNCell):
         # multiplied with the state/output, having been accumulated over the timesteps and correctly carried
         # through for all examples, regardless of #overall batch timesteps.
 
-        output, new_state = rnn(self.cell, [input], state, scope=type(self.cell).__name__)
+
+        # if all the probs are zero, we are seeing a new input => binary flag := 1, else 0.
+        binary_flag = tf.cond(tf.reduce_all(tf.equal(prob,0.0)),
+                              lambda: tf.ones([self.batch_size,1],dtype=tf.float32),
+                              lambda: tf.zeros([self.batch_size,1],tf.float32))
+
+        input_with_flags = tf.concat(1, [binary_flag,input])
+        output, new_state = rnn(self.cell, [input_with_flags], state, scope=type(self.cell).__name__)
+
 
         with tf.variable_scope('sigmoid_activation_for_pondering'):
             p = tf.squeeze(tf.sigmoid(tf.nn.rnn_cell._linear(new_state, 1, True)))
