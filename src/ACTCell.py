@@ -14,7 +14,7 @@ class ACTCell(rnn_cell.RNNCell):
     """An RNN cell implementing Graves' Adaptive Computation Time algorithm"""
 
 
-    def __init__(self, num_units, cell, epsilon, max_computation, batch_size):
+    def __init__(self, num_units, cell, epsilon, max_computation, batch_size, sigmoid_output=False):
 
         self.batch_size = batch_size
         self.one_minus_eps = tf.constant(1.0 - epsilon, tf.float32,[self.batch_size])
@@ -23,6 +23,7 @@ class ACTCell(rnn_cell.RNNCell):
         self.N = tf.constant(max_computation, tf.float32,[self.batch_size])
         self.ACT_remainder = []
         self.ACT_iterations = []
+        self.sigmoid_output = sigmoid_output
 
     @property
     def input_size(self):
@@ -69,6 +70,9 @@ class ACTCell(rnn_cell.RNNCell):
         #accumulate remainder  and N values
         self.ACT_remainder.append(tf.reduce_mean(1 - remainders))
         self.ACT_iterations.append(tf.reduce_mean(iterations))
+
+        if self.sigmoid_output:
+            output = tf.sigmoid(tf.nn.rnn_cell._linear(output,self.batch_size,0.0))
 
         return output, next_state
 
