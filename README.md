@@ -1,9 +1,7 @@
 # act-tensorflow
 Adaptive Computation Time algorithm in Tensorflow
 
-This repo contains a ACTCell.py file impementing ACT and inheriting from the abstract RNN class in the Tensorflow doccumentation [here]\
-(https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/ops/rnn_cell.py). It implements the
-Adaptive Computation Time Algorithm, described in [this paper](http://arxiv.org/pdf/1603.08983v4.pdf).
+This repo contains a ACTCell.py file impementing ACT and inheriting from the abstract RNN class in the Tensorflow doccumentation [here](https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/ops/rnn_cell.py). It implements the Adaptive Computation Time Algorithm, described in [this paper](http://arxiv.org/pdf/1603.08983v4.pdf).
 
 Also included in the repo is a model which uses this cell for language modelling on the Penn Tree Bank,
 a common dataset for evaluating language models. To run the ACT_Training.py file, you will need to download
