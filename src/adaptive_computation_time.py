@@ -21,7 +21,7 @@ class ACTModel(object):
         self.max_grad_norm = config.max_grad_norm
         self.use_lstm = config.use_lstm
 
-        # placeholders for inputs
+        # Placeholders for inputs.
         self.input_data = tf.placeholder(tf.int32, [batch_size, num_steps])
         self.targets = tf.placeholder(tf.int32, [batch_size, num_steps])
         self.initial_state = array_ops.zeros(
@@ -30,7 +30,7 @@ class ACTModel(object):
 
         embedding = tf.get_variable('embedding', [self.config.vocab_size, self.config.hidden_size])
 
-        # set up ACT cell and inner rnn-type cell for use inside the ACT cell
+        # Set up ACT cell and inner rnn-type cell for use inside the ACT cell.
         with tf.variable_scope("rnn"):
             if self.use_lstm:
                 inner_cell = rnn_cell.BasicLSTMCell(self.config.hidden_size)
@@ -47,7 +47,7 @@ class ACTModel(object):
 
         self.outputs, final_state = rnn(act, inputs, dtype = tf.float32)
 
-        # softmax to get probability distribution over vocab
+        # Softmax to get probability distribution over vocab.
         output = tf.reshape(tf.concat(1, self.outputs), [-1, hidden_size])
         softmax_w = tf.get_variable("softmax_w", [hidden_size, vocab_size])
         softmax_b = tf.get_variable("softmax_b", [vocab_size])
@@ -59,7 +59,7 @@ class ACTModel(object):
                 [tf.ones([batch_size * num_steps])],
                 vocab_size)
 
-        # add up loss and retrieve batch-normalised ponder cost: sum N + sum Remainder
+        # Add up loss and retrieve batch-normalised ponder cost: sum N + sum Remainder.
         ponder_cost = act.calculate_ponder_cost(time_penalty=self.config.ponder_time_penalty)
         self.cost = (tf.reduce_sum(loss) / batch_size) + ponder_cost
         self.final_state = self.outputs[-1]

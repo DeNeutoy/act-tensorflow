@@ -37,11 +37,8 @@ def main(unused_args):
     if weights_dir is not None:
         if not os.path.exists(weights_dir):
             os.mkdir(weights_dir)
-    if not debug:
-        raw_data = ptb_raw_data(FLAGS.data_path, "ptb.train.txt", "ptb.valid.txt", "ptb.test.txt")
-    else:
-        raw_data = ptb_raw_data(FLAGS.data_path, "emma.txt", "emma.val.txt", "emma.test.txt")
 
+    raw_data = ptb_raw_data(FLAGS.data_path, "ptb.train.txt", "ptb.valid.txt", "ptb.test.txt")
     train_data, val_data, test_data, vocab, word_to_id = raw_data
 
     with tf.Graph().as_default(), tf.Session() as session:
@@ -50,7 +47,7 @@ def main(unused_args):
         with tf.variable_scope('model', reuse=None, initializer=initialiser):
             m = ACTModel(config, is_training=True)
 
-            # if we have a saved/pre-trained model, load it.
+            # If we have a saved/pre-trained model, load it.
             if saved_model_path is not None:
                 saveload.main(saved_model_path, session)
 
@@ -61,12 +58,14 @@ def main(unused_args):
         tf.initialize_all_variables().run()
 
         print("starting training")
+        max_steps = 100 if debug else None
+        val_max_steps = 10 if debug else None
         for i in range(config.max_max_epoch):
 
             lr_decay = config.lr_decay ** max(i - config.max_epoch, 0.0)
             session.run(tf.assign(m.lr, config.learning_rate * lr_decay))
-            train_loss = run_epoch(session, m, train_data, m.train_op, max_steps=1000,verbose=True)
-            valid_loss = run_epoch(session, m_val, val_data, tf.no_op(), max_steps=200)
+            train_loss = run_epoch(session, m, train_data, m.train_op, max_steps=max_steps,verbose=True)
+            valid_loss = run_epoch(session, m_val, val_data, tf.no_op(), max_steps=val_max_steps)
 
             if verbose:
                 print("Epoch: {} Learning rate: {}".format(i + 1, session.run(m.lr)))
