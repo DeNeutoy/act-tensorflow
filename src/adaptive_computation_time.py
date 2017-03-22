@@ -5,7 +5,8 @@ from __future__ import print_function
 
 import tensorflow as tf
 from act_cell import ACTCell
-from tensorflow.python.ops.nn import rnn_cell, rnn, seq2seq
+from tensorflow.contrib.rnn import BasicLSTMCell, GRUCell, static_rnn
+from tensorflow.contrib.legacy_seq2seq import sequence_loss_by_example
 from tensorflow.python.ops import array_ops
 
 
@@ -24,8 +25,7 @@ class ACTModel(object):
         # Placeholders for inputs.
         self.input_data = tf.placeholder(tf.int32, [batch_size, num_steps])
         self.targets = tf.placeholder(tf.int32, [batch_size, num_steps])
-        self.initial_state = array_ops.zeros(
-                array_ops.pack([self.batch_size, self.num_steps]),
+        self.initial_state = array_ops.zeros(tf.stack([self.batch_size, self.num_steps]),
                  dtype=tf.float32).set_shape([None, self.num_steps])
 
         embedding = tf.get_variable('embedding', [self.config.vocab_size, self.config.hidden_size])
@@ -33,9 +33,9 @@ class ACTModel(object):
         # Set up ACT cell and inner rnn-type cell for use inside the ACT cell.
         with tf.variable_scope("rnn"):
             if self.use_lstm:
-                inner_cell = rnn_cell.BasicLSTMCell(self.config.hidden_size)
+                inner_cell = BasicLSTMCell(self.config.hidden_size)
             else:
-                inner_cell = rnn_cell.GRUCell(self.config.hidden_size)
+                inner_cell = GRUCell(self.config.hidden_size)
 
         with tf.variable_scope("ACT"):
 
@@ -43,17 +43,18 @@ class ACTModel(object):
                           max_computation=config.max_computation, batch_size=self.batch_size)
 
         inputs = tf.nn.embedding_lookup(embedding, self.input_data)
-        inputs = [tf.squeeze(single_input, [1]) for single_input in tf.split(1, self.config.num_steps, inputs)]
 
-        self.outputs, final_state = rnn(act, inputs, dtype = tf.float32)
+        inputs = [tf.squeeze(single_input, [1]) for single_input in tf.split(inputs, self.config.num_steps, 1)]
+
+        self.outputs, final_state = static_rnn(act, inputs, dtype = tf.float32)
 
         # Softmax to get probability distribution over vocab.
-        output = tf.reshape(tf.concat(1, self.outputs), [-1, hidden_size])
+        output = tf.reshape(tf.concat(self.outputs, 1), [-1, hidden_size])
         softmax_w = tf.get_variable("softmax_w", [hidden_size, vocab_size])
         softmax_b = tf.get_variable("softmax_b", [vocab_size])
         self.logits = tf.matmul(output, softmax_w) + softmax_b   # dim (numsteps*batchsize, vocabsize)
 
-        loss = seq2seq.sequence_loss_by_example(
+        loss = sequence_loss_by_example(
                 [self.logits],
                 [tf.reshape(self.targets, [-1])],
                 [tf.ones([batch_size * num_steps])],
