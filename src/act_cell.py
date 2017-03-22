@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 from tensorflow.contrib.rnn import RNNCell
+from tensorflow.contrib.rnn import static_rnn
 from tensorflow.python.ops import variable_scope as vs
 
 
@@ -13,15 +14,14 @@ class ACTCell(RNNCell):
     A RNN cell implementing Graves' Adaptive Computation Time algorithm
     """
     def __init__(self, num_units, cell, epsilon,
-                 max_computation, batch_size, train_length, sigmoid_output=False):
+                 max_computation, batch_size, sigmoid_output=False):
 
         self.batch_size = batch_size
-        self.train_length = train_length
         #self.one_minus_eps = tf.constant(1.0 - epsilon, tf.float32, [self.batch_size])
-        self.one_minus_eps = tf.ones(batch_size * self.train_length) * (1.0 - epsilon)
+        self.one_minus_eps = tf.ones(batch_size) * (1.0 - epsilon)
         self._num_units = num_units
         self.cell = cell
-        self.N = tf.ones(batch_size * self.train_length) * max_computation
+        self.N = tf.ones(batch_size) * max_computation
         self.ACT_remainder = []
         self.ACT_iterations = []
         self.sigmoid_output = sigmoid_output
@@ -40,12 +40,12 @@ class ACTCell(RNNCell):
 
         with vs.variable_scope(scope or type(self).__name__):
             # define within cell constants/ counters used to control while loop for ACTStep
-            prob = tf.zeros(self.batch_size * self.train_length, name="prob")
-            prob_compare = tf.zeros(self.batch_size * self.train_length, name="prob_compare")
-            counter = tf.zeros(self.batch_size * self.train_length, name="counter")
+            prob = tf.constant(0.0, tf.float32, [self.batch_size], name="prob")
+            prob_compare = tf.constant(0.0, tf.float32, [self.batch_size], name="prob_compare")
+            counter = tf.constant(0.0, tf.float32, [self.batch_size], name="counter")
             acc_outputs = tf.zeros_like(state, tf.float32, name="output_accumulator")
             acc_states = tf.zeros_like(state, tf.float32, name="state_accumulator")
-            batch_mask = tf.cast(tf.fill(self.batch_size * self.train_length, True), tf.bool)
+            batch_mask = tf.constant(True, tf.bool, [self.batch_size])
 
 
             # While loop stops when this predicate is FALSE.
@@ -67,7 +67,7 @@ class ACTCell(RNNCell):
         self.ACT_iterations.append(tf.reduce_mean(iterations))
 
         if self.sigmoid_output:
-            output = tf.sigmoid(tf.contrib.rnn.BasicRNNCell._linear(output,self.batch_size * self.train_length,0.0))
+            output = tf.sigmoid(tf.contrib.rnn.BasicRNNCell._linear(output,self.batch_size,0.0))
 
         return output, next_state
 
@@ -91,17 +91,15 @@ class ACTCell(RNNCell):
 
         # If all the probs are zero, we are seeing a new input => binary flag := 1, else 0.
         binary_flag = tf.cond(tf.reduce_all(tf.equal(prob, 0.0)),
-                              lambda: tf.ones([self.batch_size * self.train_length,1], dtype=tf.float32),
-                              lambda: tf.zeros([self.batch_size * self.train_length,1], tf.float32))
+                              lambda: tf.ones([self.batch_size, 1], dtype=tf.float32),
+                              lambda: tf.zeros([self.batch_size, 1], tf.float32))
 
         input_with_flags = tf.concat([binary_flag, input], 1)
 
-        input_shape_size = input_with_flags.get_shape().as_list()[1]
-        input_flags_flat = tf.reshape(tf.contrib.layers.flatten(input_with_flags), [self.batch_size, self.train_length, input_shape_size])
-        output, new_state = tf.nn.dynamic_rnn(cell=self.cell, inputs=[input_flags_flat], initial_state=state, scope=type(self.cell).__name__)
+        output, new_state = static_rnn(cell=self.cell, inputs=[input_with_flags], initial_state=state, scope=type(self.cell).__name__)
 
         with tf.variable_scope('sigmoid_activation_for_pondering'):
-            p = tf.squeeze(tf.sigmoid(tf.contrib.rnn.BasicRNNCell._linear(new_state, 1, True)))
+            p = tf.squeeze(tf.layers.dense(new_state, 1, activation=tf.sigmoid))
 
         # Multiply by the previous mask as if we stopped before, we don't want to start again
         # if we generate a p less than p_t-1 for a given example.
@@ -131,7 +129,7 @@ class ACTCell(RNNCell):
         final_iteration_condition = tf.logical_and(new_batch_mask, counter_condition)
         use_remainder = tf.expand_dims(1.0 - prob, -1)
         use_probability = tf.expand_dims(p, -1)
-        update_weight = tf.select(final_iteration_condition, use_probability, use_remainder)
+        update_weight = tf.where(final_iteration_condition, use_probability, use_remainder)
         float_mask = tf.expand_dims(tf.cast(batch_mask, tf.float32), -1)
 
         acc_state = (new_state * update_weight * float_mask) + acc_states

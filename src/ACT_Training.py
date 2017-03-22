@@ -55,7 +55,7 @@ def main(unused_args):
             m_val = ACTModel(config, is_training=False)
             m_test = ACTModel(eval_config, is_training=False)
 
-        tf.initialize_all_variables().run()
+        tf.global_variables_initializer().run()
 
         print("starting training")
         max_steps = 100 if debug else None
