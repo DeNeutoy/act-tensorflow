@@ -115,7 +115,7 @@ class ACTCell(RNNCell):
             new_state = tf.concat(new_state, 1)
 
         with tf.variable_scope('sigmoid_activation_for_pondering'):
-            p = tf.squeeze(tf.sigmoid(core_rnn_cell_impl._linear(new_state, 1, True)), squeeze_dims=1)
+            p = tf.squeeze(tf.layers.dense(new_state, 1, activation=tf.sigmoid, use_bias=True), squeeze_dims=1)
 
         # Multiply by the previous mask as if we stopped before, we don't want to start again
         # if we generate a p less than p_t-1 for a given example.
