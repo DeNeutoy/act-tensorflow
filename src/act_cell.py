@@ -7,6 +7,7 @@ import tensorflow as tf
 from tensorflow.contrib.rnn import RNNCell
 from tensorflow.contrib.rnn import static_rnn
 from tensorflow.python.ops import variable_scope as vs
+from tensorflow.contrib.rnn.python.ops import core_rnn_cell_impl
 
 
 class ACTCell(RNNCell):
@@ -17,14 +18,18 @@ class ACTCell(RNNCell):
                  max_computation, batch_size, sigmoid_output=False):
 
         self.batch_size = batch_size
-        #self.one_minus_eps = tf.constant(1.0 - epsilon, tf.float32, [self.batch_size])
-        self.one_minus_eps = tf.ones(batch_size) * (1.0 - epsilon)
+        self.one_minus_eps = tf.fill([self.batch_size], tf.constant(1.0 - epsilon, dtype=tf.float32))
         self._num_units = num_units
         self.cell = cell
-        self.N = tf.ones(batch_size) * max_computation
+        self.max_computation = max_computation
         self.ACT_remainder = []
         self.ACT_iterations = []
         self.sigmoid_output = sigmoid_output
+
+        if hasattr(self.cell, "_state_is_tuple"):
+            self._state_is_tuple = self.cell._state_is_tuple
+        else:
+            self._state_is_tuple = False
 
     @property
     def input_size(self):
@@ -38,14 +43,17 @@ class ACTCell(RNNCell):
 
     def __call__(self, inputs, state, timestep=0, scope=None):
 
+        if self._state_is_tuple:
+            state = tf.concat(state, 1)
+
         with vs.variable_scope(scope or type(self).__name__):
             # define within cell constants/ counters used to control while loop for ACTStep
-            prob = tf.constant(0.0, tf.float32, [self.batch_size], name="prob")
-            prob_compare = tf.constant(0.0, tf.float32, [self.batch_size], name="prob_compare")
-            counter = tf.constant(0.0, tf.float32, [self.batch_size], name="counter")
-            acc_outputs = tf.zeros_like(state, tf.float32, name="output_accumulator")
+            prob = tf.fill([self.batch_size], tf.constant(0.0, dtype=tf.float32), "prob")
+            prob_compare = tf.zeros_like(prob, tf.float32, name="prob_compare")
+            counter = tf.zeros_like(prob, tf.float32, name="counter")
+            acc_outputs = tf.fill([self.batch_size, self.output_size], 0.0, name='output_accumulator')
             acc_states = tf.zeros_like(state, tf.float32, name="state_accumulator")
-            batch_mask = tf.constant(True, tf.bool, [self.batch_size])
+            batch_mask = tf.fill([self.batch_size], True, name="batch_mask")
 
 
             # While loop stops when this predicate is FALSE.
@@ -54,13 +62,13 @@ class ACTCell(RNNCell):
                           counter, state, input, acc_output, acc_state):
                 return tf.reduce_any(tf.logical_and(
                         tf.less(prob_compare,self.one_minus_eps),
-                        tf.less(counter,self.N)))
+                        tf.less(counter, self.max_computation)))
 
             # Do while loop iterations until predicate above is false.
             _,_,remainders,iterations,_,_,output,next_state = \
                 tf.while_loop(halting_predicate, self.act_step,
-                [batch_mask, prob_compare, prob,
-                 counter, state, inputs, acc_outputs, acc_states])
+                              loop_vars=[batch_mask, prob_compare, prob,
+                                         counter, state, inputs, acc_outputs, acc_states])
 
         #accumulate remainder  and N values
         self.ACT_remainder.append(tf.reduce_mean(1 - remainders))
@@ -68,6 +76,10 @@ class ACTCell(RNNCell):
 
         if self.sigmoid_output:
             output = tf.sigmoid(tf.contrib.rnn.BasicRNNCell._linear(output,self.batch_size,0.0))
+
+        if self._state_is_tuple:
+            next_c, next_h = tf.split(next_state, 2, 1)
+            next_state = tf.contrib.rnn.LSTMStateTuple(next_c, next_h)
 
         return output, next_state
 
@@ -96,10 +108,17 @@ class ACTCell(RNNCell):
 
         input_with_flags = tf.concat([binary_flag, input], 1)
 
+        if self._state_is_tuple:
+            (c, h) = tf.split(state, 2, 1)
+            state = tf.contrib.rnn.LSTMStateTuple(c, h)
+
         output, new_state = static_rnn(cell=self.cell, inputs=[input_with_flags], initial_state=state, scope=type(self.cell).__name__)
 
+        if self._state_is_tuple:
+            new_state = tf.concat(new_state, 1)
+
         with tf.variable_scope('sigmoid_activation_for_pondering'):
-            p = tf.squeeze(tf.layers.dense(new_state, 1, activation=tf.sigmoid))
+            p = tf.squeeze(tf.layers.dense(new_state, 1, activation=tf.sigmoid, use_bias=True), squeeze_dims=1)
 
         # Multiply by the previous mask as if we stopped before, we don't want to start again
         # if we generate a p less than p_t-1 for a given example.
@@ -124,7 +143,7 @@ class ACTCell(RNNCell):
         # Halting condition (halts, and uses the remainder when this is FALSE):
         # If any batch element still has both a prob < 1 - epsilon AND counter < N we
         # continue, using the outputed probability p.
-        counter_condition = tf.less(counter,self.N)
+        counter_condition = tf.less(counter, self.max_computation)
 
         final_iteration_condition = tf.logical_and(new_batch_mask, counter_condition)
         use_remainder = tf.expand_dims(1.0 - prob, -1)
